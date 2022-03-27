@@ -1,28 +1,48 @@
-import { useState } from "react";
-import {
-  Button,
-  StyleSheet,
-  TextInput,
-  Text,
-  View,
-  NativeSyntheticEvent,
-  NativeTouchEvent,
-  TouchableOpacity,
-  FlatList,
-} from "react-native";
+import { useState, useEffect } from "react";
+import { StyleSheet, View, FlatList, Pressable, Button } from "react-native";
+
 import { StatusBar } from "expo-status-bar";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import TaskItem from "./components/TaskItem";
+import TaskInput from "./components/TaskInput";
 
 export default function App() {
-  const [inputTask, setInputTask] = useState("");
   const [taskList, setTaskList] = useState<string[]>([]);
+  const [modelVisible, setModelVisible] = useState(false);
 
-  function handleTextInputChange(text: string) {
-    setInputTask(text);
+  const getTaskListStorage = async () => {
+    try {
+      const jsonValue = await AsyncStorage.getItem("@taskList");
+      jsonValue != null ? setTaskList(JSON.parse(jsonValue)) : setTaskList([]);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const setTaskListStorage = async () => {
+    try {
+      AsyncStorage.setItem("@taskList", JSON.stringify(taskList));
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  useEffect(() => {
+    getTaskListStorage();
+  }, []);
+
+  useEffect(() => {
+    setTaskListStorage();
+  }, [taskList]);
+
+  function toggleModel() {
+    setModelVisible(!modelVisible);
   }
 
-  function handleAddButton(event: NativeSyntheticEvent<NativeTouchEvent>) {
-    event.preventDefault();
-    setTaskList((currentTask: string[]) => [inputTask, ...currentTask]);
+  function addTask(enteredTaskText: string) {
+    setTaskList((currentTask: string[]) => [...currentTask, enteredTaskText]);
+    toggleModel();
   }
 
   function handleTaskPress(removedTaskIndex: number) {
@@ -33,16 +53,14 @@ export default function App() {
 
   return (
     <>
+      <StatusBar style="light" />
       <View style={styles.appContainer}>
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.textInput}
-            value={inputTask}
-            onChangeText={handleTextInputChange}
-            placeholder="Enter Task To Do!"
-          />
-          <Button title="Add" onPress={handleAddButton} />
-        </View>
+        <Button title="Add New Task" color="#8f4ce7" onPress={toggleModel} />
+        <TaskInput
+          addTask={addTask}
+          visible={modelVisible}
+          onCancel={toggleModel}
+        />
         <View style={styles.tasksContainer}>
           <FlatList
             alwaysBounceVertical={false}
@@ -50,18 +68,19 @@ export default function App() {
             renderItem={(itemData) => {
               const { item, index } = itemData;
               return (
-                <TouchableOpacity onPress={() => handleTaskPress(index)}>
-                  <View style={styles.taskItem}>
-                    <Text style={styles.taskText}>{item}</Text>
-                  </View>
-                </TouchableOpacity>
+                <Pressable
+                  android_ripple={{ color: "#311b6b" }}
+                  onPress={() => handleTaskPress(index)}
+                  style={({ pressed }) => pressed && styles.pressItem}
+                >
+                  <TaskItem item={`${index + 1}-${item}`} />
+                </Pressable>
               );
             }}
             keyExtractor={(_, index) => index.toString()}
           />
         </View>
       </View>
-      <StatusBar style="auto" />
     </>
   );
 }
@@ -69,35 +88,13 @@ export default function App() {
 const styles = StyleSheet.create({
   appContainer: {
     flex: 1,
-    paddingTop: 30,
+    paddingTop: 70,
     paddingHorizontal: 16,
   },
-  inputContainer: {
-    flex: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: "#cccccc",
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: "#cccccc",
-    width: "80%",
-    marginRight: 8,
-    padding: 8,
+  pressItem: {
+    opacity: 0.5,
   },
   tasksContainer: {
     flex: 4,
-  },
-  taskItem: {
-    margin: 8,
-    padding: 8,
-    borderRadius: 12,
-    backgroundColor: "purple",
-  },
-  taskText: {
-    color: "white",
   },
 });
